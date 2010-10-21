@@ -18,6 +18,7 @@ from fungiform.exceptions import ValidationError
 from fungiform.forms import *
 __all__ = list(x for x in fungiform.forms.__all__ if x != 'FormBase')
 __all__ += ['Form', 'ValidationError', 'widgets', 'validators']
+__all__ += ['FileField']
 
 try:
     from flaskext import babel
@@ -44,7 +45,9 @@ class Form(FormBase):
 
     def _autodiscover_data(self):
         if self.request_info.method in ('PUT', 'POST'):
-            return self.request_info.form
+            request_data = self.request_info.form.copy()
+            request_data.update(self.request_info.files)
+            return request_data
         return self.request_info.args
 
     def _redirect_to_url(self, url):
@@ -57,3 +60,29 @@ class Form(FormBase):
         ctx = _request_ctx_stack.top
         if ctx is not None:
             return ctx.session
+
+
+class FileInput(widgets.Input):
+    
+    type = 'file'
+
+    def _attr_setdefault(self, attrs):
+        widgets.Widget._attr_setdefault(self, attrs)
+        attrs.setdefault('multiple', self._field.multiple)
+
+
+class FileField(Field):
+    
+    widget = FileInput
+    multipart = True
+    
+    def __init__(self, label=None, help_text=None, required=False,
+                 multiple=False, validators=None, widget=None, 
+                 messages=None, sentinel=False):
+        Field.__init__(self, label, help_text, validators, widget, 
+                       messages, sentinel)
+        self.required = required
+        self.multiple = multiple
+    
+    def convert(self, value):
+        return value
